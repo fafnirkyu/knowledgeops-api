@@ -2,3 +2,4 @@ FastAPI
 Pytest
 Uvicorn
 httpx2
+pydantic-settings
