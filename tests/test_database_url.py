@@ -1,7 +1,12 @@
 from sqlalchemy import URL, Engine
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.db.session import build_database_url, create_db_engine
+from app.db.session import (
+    build_database_url,
+    create_db_engine,
+    create_session_factory,
+)
 
 
 def test_build_database_url_from_settings():
@@ -44,11 +49,11 @@ def test_rendered_database_url_masks_password():
 def test_create_db_engine_from_settings():
     fake_password = "p@ssw0rd/123"
     settings = Settings(
-    postgres_user="fake_user",
-    postgres_password=fake_password,
-    postgres_host="fake_host",
-    postgres_port="5013",
-    postgres_db="fake_db",
+        postgres_user="fake_user",
+        postgres_password=fake_password,
+        postgres_host="fake_host",
+        postgres_port="5013",
+        postgres_db="fake_db",
     )
     engine = create_db_engine(settings)
 
@@ -59,4 +64,24 @@ def test_create_db_engine_from_settings():
     assert engine.url.database == "fake_db"
     assert engine.url.password == fake_password
     assert isinstance(engine, Engine)
+    engine.dispose()
+
+
+def test_session_factory_creates_configured_session():
+    fake_password = "p@ssw0rd/123"
+    settings = Settings(
+        postgres_user="fake_user",
+        postgres_password=fake_password,
+        postgres_host="fake_host",
+        postgres_port="5013",
+        postgres_db="fake_db",
+    )
+    engine = create_db_engine(settings)
+    session_factory = create_session_factory(engine)
+    with session_factory() as session:
+        assert isinstance(session, Session)
+        assert session.get_bind() is engine
+        assert session.autoflush is False
+        assert session.expire_on_commit is False
+
     engine.dispose()
