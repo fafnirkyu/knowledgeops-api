@@ -1,7 +1,7 @@
-from sqlalchemy import URL
+from sqlalchemy import URL, Engine
 
 from app.core.config import Settings
-from app.db.session import build_database_url
+from app.db.session import build_database_url, create_db_engine
 
 
 def test_build_database_url_from_settings():
@@ -39,3 +39,24 @@ def test_rendered_database_url_masks_password():
 
     assert fake_password not in rendered_url
     assert "***" in rendered_url
+
+
+def test_create_db_engine_from_settings():
+    fake_password = "p@ssw0rd/123"
+    settings = Settings(
+    postgres_user="fake_user",
+    postgres_password=fake_password,
+    postgres_host="fake_host",
+    postgres_port="5013",
+    postgres_db="fake_db",
+    )
+    engine = create_db_engine(settings)
+
+    assert engine.url.drivername == "postgresql+psycopg"
+    assert engine.url.username == "fake_user"
+    assert engine.url.host == "fake_host"
+    assert engine.url.port == 5013
+    assert engine.url.database == "fake_db"
+    assert engine.url.password == fake_password
+    assert isinstance(engine, Engine)
+    engine.dispose()

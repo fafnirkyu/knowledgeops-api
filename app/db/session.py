@@ -1,4 +1,4 @@
-from sqlalchemy import URL
+from sqlalchemy import URL, Engine, create_engine
 
 from app.core.config import Settings
 
@@ -12,3 +12,9 @@ def build_database_url(settings: Settings) -> URL:
         port=settings.postgres_port,
         database=settings.postgres_db,
     )
+
+
+def create_db_engine(settings: Settings) -> Engine:
+    engine_url = build_database_url(settings)
+    engine = create_engine(engine_url, pool_pre_ping=True)
+    return engine
