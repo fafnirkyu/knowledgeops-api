@@ -2,3 +2,7 @@ FastAPI
 Pytest
 Uvicorn
 httpx2
+pydantic-settings
+SQLAlchemy
+psycopg[binary]
+Alembic
