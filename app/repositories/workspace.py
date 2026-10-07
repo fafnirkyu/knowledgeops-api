@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.workspace import Workspace
-from app.schemas.workspace import WorkspaceCreate
+from app.schemas.workspace import WorkspaceCreate, WorkspaceUpdate
 
 
 def list_workspaces(session: Session) -> Sequence[Workspace]:
@@ -34,3 +34,29 @@ def create_workspace(
     session.refresh(workspace)
 
     return workspace
+
+
+def update_workspace(
+    session: Session,
+    workspace: Workspace,
+    workspace_data: WorkspaceUpdate,
+) -> Workspace:
+    update_data = workspace_data.model_dump(
+        exclude_unset=True
+    )
+
+    for field_name, value in update_data.items():
+        setattr(workspace, field_name, value)
+
+    session.commit()
+    session.refresh(workspace)
+
+    return workspace
+
+
+def delete_workspace(
+    session: Session,
+    workspace: Workspace,
+) -> None:
+    session.delete(workspace)
+    session.commit()

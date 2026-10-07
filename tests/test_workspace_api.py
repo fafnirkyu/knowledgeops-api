@@ -127,3 +127,92 @@ def test_create_workspace_rejects_blank_name(
     },
 )
     assert response.status_code == 422
+
+def test_update_workspace(
+    api_client: TestClient,
+    db_session: Session,
+):
+    workspace = create_workspace(
+        db_session,
+        WorkspaceCreate(
+            name="Research",
+            description="Original description",
+        ),
+    )
+
+    response = api_client.patch(
+        f"/workspaces/{workspace.id}",
+        json={
+            "description": "Updated description",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["id"] == str(workspace.id)
+    assert data["name"] == "Research"
+    assert data["description"] == "Updated description"
+
+
+def test_update_missing_workspace_returns_404(
+    api_client: TestClient,
+):
+    missing_workspace_id = UUID(
+        "00000000-0000-0000-0000-000000000001"
+    )
+
+    response = api_client.patch(
+        f"/workspaces/{missing_workspace_id}",
+        json={
+            "description": "Updated description",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Workspace not found"
+    }
+
+def test_delete_workspace(
+    api_client: TestClient,
+    db_session: Session,
+):
+    workspace = create_workspace(
+        db_session,
+        WorkspaceCreate(
+            name="Temporary",
+            description="Delete this workspace",
+        ),
+    )
+    workspace_id = workspace.id
+
+    response = api_client.delete(
+        f"/workspaces/{workspace_id}"
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+    deleted_workspace = get_workspace(
+        db_session,
+        workspace_id,
+    )
+    assert deleted_workspace is None
+
+
+def test_delete_missing_workspace_returns_404(
+    api_client: TestClient,
+):
+    missing_workspace_id = UUID(
+        "00000000-0000-0000-0000-000000000001"
+    )
+
+    response = api_client.delete(
+        f"/workspaces/{missing_workspace_id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Workspace not found"
+    }
