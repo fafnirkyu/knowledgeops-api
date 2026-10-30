@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.models.document import Document
+from app.models.document import Document, DocumentStatus
 from app.repositories.document import (
     create_document,
     get_document,
@@ -45,6 +45,8 @@ def test_create_document_persists_document(db_session: Session):
     assert stored_document is not None
     assert stored_document.id == document.id
 
+    assert document.status is DocumentStatus.PENDING
+    assert document.processing_error is None
 
 
 def test_list_documents_filters_by_workspace_and_orders_by_title(
@@ -105,6 +107,7 @@ def test_list_documents_filters_by_workspace_and_orders_by_title(
         document.workspace_id == workspace_a.id
         for document in documents
     )
+
 
 def test_get_document_returns_document_or_none(
     db_session: Session,
