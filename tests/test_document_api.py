@@ -5,15 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.repositories.document import create_document, get_document
 from app.repositories.workspace import create_workspace
-from app.schemas.workspace import WorkspaceCreate
 from app.schemas.document import DocumentCreate
+from app.schemas.workspace import WorkspaceCreate
 
 
 def test_create_document(
     api_client: TestClient,
     db_session: Session,
 ):
-
     workspace = create_workspace(
         db_session,
         WorkspaceCreate(
@@ -85,7 +84,7 @@ def test_list_documents_returns_only_requested_workspace(
             description="Research documents",
         ),
     )
-    created_document = create_document(
+    create_document(
         db_session,
         workspace_a.id,
         DocumentCreate(
@@ -93,6 +92,15 @@ def test_list_documents_returns_only_requested_workspace(
             content="Visible content",
             source_url=None,
         ),
+    )
+    create_document(
+        db_session,
+        workspace_b.id,
+        DocumentCreate(
+            title="Hidden",
+            content="Hidden content",
+            source_url=None,
+         ),
     )
 
     response = api_client.get(

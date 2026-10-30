@@ -17,6 +17,7 @@ router = APIRouter(tags=["documents"])
 
 DbSession = Annotated[Session, Depends(get_db_session)]
 
+
 @router.post(
     "/workspaces/{workspace_id}/documents",
     response_model=DocumentRead,
@@ -41,6 +42,7 @@ def create_document_endpoint(
         document_data,
     )
 
+
 @router.get(
     "/workspaces/{workspace_id}/documents",
     response_model=list[DocumentRead],
@@ -61,6 +63,7 @@ def read_documents(
         session,
         workspace_id,
     )
+
 
 @router.get(
     "/documents/{document_id}",

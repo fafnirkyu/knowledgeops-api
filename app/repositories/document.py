@@ -25,6 +25,7 @@ def create_document(
 
     return document
 
+
 def list_documents(
     session: Session,
     workspace_id: uuid.UUID,
@@ -39,6 +40,7 @@ def list_documents(
     )
 
     return session.scalars(statement).all()
+
 
 def get_document(
     session: Session,

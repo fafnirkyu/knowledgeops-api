@@ -1,11 +1,16 @@
-from sqlalchemy.orm import Session
 import uuid
 
+from sqlalchemy.orm import Session
+
 from app.models.document import Document
+from app.repositories.document import (
+    create_document,
+    get_document,
+    list_documents,
+)
 from app.repositories.workspace import create_workspace
 from app.schemas.document import DocumentCreate
 from app.schemas.workspace import WorkspaceCreate
-from app.repositories.document import create_document, list_documents, get_document
 
 
 def test_create_document_persists_document(db_session: Session):
