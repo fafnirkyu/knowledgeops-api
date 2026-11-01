@@ -1,19 +1,46 @@
 import uuid
 
+import pytest
 from sqlalchemy.orm import Session
 
 from app.models.document import Document, DocumentStatus
 from app.repositories.document import (
+    InvalidDocumentStatusTransition,
     create_document,
     get_document,
     list_documents,
+    transition_document_status,
 )
 from app.repositories.workspace import create_workspace
 from app.schemas.document import DocumentCreate
 from app.schemas.workspace import WorkspaceCreate
 
 
-def test_create_document_persists_document(db_session: Session):
+def _create_processing_test_document(
+    db_session: Session,
+) -> Document:
+    workspace = create_workspace(
+        db_session,
+        WorkspaceCreate(
+            name="Processing Workspace",
+            description=None,
+        ),
+    )
+
+    return create_document(
+        db_session,
+        workspace.id,
+        DocumentCreate(
+            title="Processing Test",
+            content="Content that will be processed",
+            source_url=None,
+        ),
+    )
+
+
+def test_create_document_persists_document(
+    db_session: Session,
+):
     workspace = create_workspace(
         db_session,
         WorkspaceCreate(
@@ -39,14 +66,16 @@ def test_create_document_persists_document(db_session: Session):
     assert document.title == "FastAPI Notes"
     assert document.content == "Notes about request validation"
     assert document.source_url == "https://fastapi.tiangolo.com/"
+    assert document.status is DocumentStatus.PENDING
+    assert document.processing_error is None
 
-    stored_document = db_session.get(Document, document.id)
+    stored_document = db_session.get(
+        Document,
+        document.id,
+    )
 
     assert stored_document is not None
     assert stored_document.id == document.id
-
-    assert document.status is DocumentStatus.PENDING
-    assert document.processing_error is None
 
 
 def test_list_documents_filters_by_workspace_and_orders_by_title(
@@ -67,6 +96,7 @@ def test_list_documents_filters_by_workspace_and_orders_by_title(
             description=None,
         ),
     )
+
     create_document(
         db_session,
         workspace_a.id,
@@ -76,6 +106,7 @@ def test_list_documents_filters_by_workspace_and_orders_by_title(
             source_url=None,
         ),
     )
+
     create_document(
         db_session,
         workspace_a.id,
@@ -96,11 +127,15 @@ def test_list_documents_filters_by_workspace_and_orders_by_title(
         ),
     )
 
-    # Act:
-    documents = list_documents(db_session, workspace_a.id)
+    documents = list_documents(
+        db_session,
+        workspace_a.id,
+    )
 
-    # Assert:
-    titles = [document.title for document in documents]
+    titles = [
+        document.title
+        for document in documents
+    ]
 
     assert titles == ["Alpha", "Zulu"]
     assert all(
@@ -145,3 +180,147 @@ def test_get_document_returns_document_or_none(
     assert found_document.title == "Retrieval Test"
 
     assert missing_document is None
+
+
+def test_transition_document_through_successful_lifecycle(
+    db_session: Session,
+):
+    document = _create_processing_test_document(
+        db_session
+    )
+
+    assert document.status is DocumentStatus.PENDING
+    assert document.processing_error is None
+
+    processing_document = transition_document_status(
+        db_session,
+        document,
+        DocumentStatus.PROCESSING,
+    )
+
+    assert (
+        processing_document.status
+        is DocumentStatus.PROCESSING
+    )
+    assert processing_document.processing_error is None
+
+    ready_document = transition_document_status(
+        db_session,
+        processing_document,
+        DocumentStatus.READY,
+    )
+
+    assert ready_document.status is DocumentStatus.READY
+    assert ready_document.processing_error is None
+
+    stored_document = db_session.get(
+        Document,
+        document.id,
+    )
+
+    assert stored_document is not None
+    assert stored_document.status is DocumentStatus.READY
+    assert stored_document.processing_error is None
+
+
+def test_failed_document_can_be_retried(
+    db_session: Session,
+):
+    document = _create_processing_test_document(
+        db_session
+    )
+
+    transition_document_status(
+        db_session,
+        document,
+        DocumentStatus.PROCESSING,
+    )
+
+    failed_document = transition_document_status(
+        db_session,
+        document,
+        DocumentStatus.FAILED,
+        processing_error="  Chunking failed  ",
+    )
+
+    assert failed_document.status is DocumentStatus.FAILED
+    assert (
+        failed_document.processing_error
+        == "Chunking failed"
+    )
+
+    retried_document = transition_document_status(
+        db_session,
+        failed_document,
+        DocumentStatus.PROCESSING,
+    )
+
+    assert (
+        retried_document.status
+        is DocumentStatus.PROCESSING
+    )
+    assert retried_document.processing_error is None
+
+
+def test_pending_document_cannot_become_ready(
+    db_session: Session,
+):
+    document = _create_processing_test_document(
+        db_session
+    )
+
+    with pytest.raises(
+        InvalidDocumentStatusTransition,
+        match=(
+            "Cannot transition document "
+            "from pending to ready"
+        ),
+    ):
+        transition_document_status(
+            db_session,
+            document,
+            DocumentStatus.READY,
+        )
+
+    db_session.refresh(document)
+
+    assert document.status is DocumentStatus.PENDING
+    assert document.processing_error is None
+
+
+@pytest.mark.parametrize(
+    "processing_error",
+    [None, "", "   "],
+)
+def test_failed_document_requires_error_message(
+    db_session: Session,
+    processing_error: str | None,
+):
+    document = _create_processing_test_document(
+        db_session
+    )
+
+    transition_document_status(
+        db_session,
+        document,
+        DocumentStatus.PROCESSING,
+    )
+
+    assert document.status is DocumentStatus.PROCESSING
+    assert document.processing_error is None
+
+    with pytest.raises(
+        ValueError,
+        match="processing_error is required",
+    ):
+        transition_document_status(
+            db_session,
+            document,
+            DocumentStatus.FAILED,
+            processing_error=processing_error,
+        )
+
+    db_session.refresh(document)
+
+    assert document.status is DocumentStatus.PROCESSING
+    assert document.processing_error is None
