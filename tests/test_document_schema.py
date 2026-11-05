@@ -3,7 +3,7 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
-from app.models.document import Document
+from app.models.document import Document, DocumentStatus
 from app.schemas.document import DocumentCreate, DocumentRead
 
 
@@ -43,6 +43,11 @@ def test_document_creation():
             "title": "Valid title",
             "content": "Valid content",
         },
+        {
+            "title": "Valid title",
+            "content": "Valid content",
+            "status": "ready",
+        },
     ],
 )
 def test_document_create_rejects_invalid_payload(payload):
@@ -59,6 +64,8 @@ def test_document_read_accepts_orm_object():
         title="FastAPI Notes",
         content="Document contents",
         source_url="https://example.com/document",
+        status=DocumentStatus.READY,
+        processing_error=None,
     )
 
     result = DocumentRead.model_validate(document)
@@ -68,3 +75,6 @@ def test_document_read_accepts_orm_object():
     assert result.title == "FastAPI Notes"
     assert result.content == "Document contents"
     assert str(result.source_url) == "https://example.com/document"
+    assert result.status is DocumentStatus.READY
+    assert result.processing_error is None
+    assert result.model_dump(mode="json")["status"] == "ready"

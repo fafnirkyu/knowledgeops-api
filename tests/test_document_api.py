@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.models.document import DocumentStatus
 from app.repositories.document import create_document, get_document
 from app.repositories.workspace import create_workspace
 from app.schemas.document import DocumentCreate
@@ -46,6 +47,7 @@ def test_create_document(
     assert saved_document.workspace_id == workspace.id
     assert saved_document.title == "FastAPI Notes"
 
+
 def test_create_document_returns_404_for_missing_workspace(
     api_client: TestClient,
 ):
@@ -65,6 +67,7 @@ def test_create_document_returns_404_for_missing_workspace(
         "detail": "Workspace not found",
     }
 
+
 def test_list_documents_returns_only_requested_workspace(
     api_client: TestClient,
     db_session: Session,
@@ -80,10 +83,11 @@ def test_list_documents_returns_only_requested_workspace(
     workspace_b = create_workspace(
         db_session,
         WorkspaceCreate(
-            name="Research",
-            description="Research documents",
+            name="Other Workspace",
+            description="Other documents",
         ),
     )
+
     create_document(
         db_session,
         workspace_a.id,
@@ -93,6 +97,7 @@ def test_list_documents_returns_only_requested_workspace(
             source_url=None,
         ),
     )
+
     create_document(
         db_session,
         workspace_b.id,
@@ -100,7 +105,7 @@ def test_list_documents_returns_only_requested_workspace(
             title="Hidden",
             content="Hidden content",
             source_url=None,
-         ),
+        ),
     )
 
     response = api_client.get(
@@ -114,6 +119,7 @@ def test_list_documents_returns_only_requested_workspace(
     assert len(data) == 1
     assert data[0]["title"] == "Visible"
     assert data[0]["workspace_id"] == str(workspace_a.id)
+
 
 def test_get_document_returns_document(
     api_client: TestClient,
@@ -150,6 +156,7 @@ def test_get_document_returns_document(
     assert data["title"] == "Retrieval Test"
     assert data["content"] == "Test content"
 
+
 def test_get_document_returns_404_when_missing(
     api_client: TestClient,
 ):
@@ -158,7 +165,109 @@ def test_get_document_returns_404_when_missing(
     response = api_client.get(
         f"/documents/{missing_document_id}"
     )
+
     assert response.status_code == 404
     assert response.json() == {
         "detail": "Document not found",
+    }
+
+
+def test_process_document_endpoint(
+    api_client: TestClient,
+    db_session: Session,
+):
+    workspace = create_workspace(
+        db_session,
+        WorkspaceCreate(
+            name="Processing Workspace",
+            description=None,
+        ),
+    )
+
+    document = create_document(
+        db_session,
+        workspace.id,
+        DocumentCreate(
+            title="Processing Test",
+            content="Document content",
+            source_url=None,
+        ),
+    )
+
+    response = api_client.post(
+        f"/documents/{document.id}/process"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["status"] == "ready"
+    assert data["processing_error"] is None
+
+    db_session.refresh(document)
+
+    assert document.status is DocumentStatus.READY
+    assert [
+        chunk.content
+        for chunk in document.chunks
+    ] == [
+        document.content,
+    ]
+
+
+def test_process_document_returns_404_when_missing(
+    api_client: TestClient,
+):
+    missing_document_id = uuid4()
+
+    response = api_client.post(
+        f"/documents/{missing_document_id}/process"
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Document not found",
+    }
+
+
+def test_process_ready_document_returns_conflict(
+    api_client: TestClient,
+    db_session: Session,
+):
+    workspace = create_workspace(
+        db_session,
+        WorkspaceCreate(
+            name="Conflict Workspace",
+            description=None,
+        ),
+    )
+
+    document = create_document(
+        db_session,
+        workspace.id,
+        DocumentCreate(
+            title="Conflict Test",
+            content="Document content",
+            source_url=None,
+        ),
+    )
+
+    first_response = api_client.post(
+        f"/documents/{document.id}/process"
+    )
+
+    assert first_response.status_code == 200
+    assert first_response.json()["status"] == "ready"
+
+    second_response = api_client.post(
+        f"/documents/{document.id}/process"
+    )
+
+    assert second_response.status_code == 409
+    assert second_response.json() == {
+        "detail": (
+            "Cannot transition document "
+            "from ready to processing"
+        ),
     }

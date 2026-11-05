@@ -1,7 +1,7 @@
 from sqlalchemy import Text
 
 from app.db.base import Base
-from app.models.document import Document
+from app.models.document import Document, DocumentStatus
 from app.models.workspace import Workspace
 
 
@@ -14,7 +14,10 @@ def test_document_registers_expected_table():
         "title",
         "content",
         "source_url",
+        "status",
+        "processing_error",
     }
+
 
 def test_document_column_constraints():
     columns = Document.__table__.columns
@@ -35,6 +38,22 @@ def test_document_column_constraints():
 
     assert columns["source_url"].nullable is True
     assert columns["source_url"].type.length == 2048
+    assert columns["status"].nullable is False
+    assert columns["status"].type.enums == [
+        status.value for status in DocumentStatus
+    ]
+    assert (
+        columns["status"].default.arg
+        is DocumentStatus.PENDING
+    )
+    assert (
+        columns["status"].server_default.arg
+        == DocumentStatus.PENDING.value
+    )
+
+    assert columns["processing_error"].nullable is True
+    assert isinstance(columns["processing_error"].type, Text)
+
 
 def test_document_workspace_foreign_key():
     foreign_keys = (
@@ -49,6 +68,7 @@ def test_document_workspace_foreign_key():
 
     assert foreign_key.target_fullname == "workspaces.id"
     assert foreign_key.ondelete == "CASCADE"
+
 
 def test_document_workspace_relationship():
     assert (

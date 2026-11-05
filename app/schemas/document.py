@@ -2,6 +2,8 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
+from app.models.document import DocumentStatus
+
 
 class DocumentCreate(BaseModel):
     model_config = ConfigDict(
@@ -17,5 +19,7 @@ class DocumentCreate(BaseModel):
 class DocumentRead(DocumentCreate):
     id: uuid.UUID
     workspace_id: uuid.UUID
+    status: DocumentStatus
+    processing_error: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
