@@ -1,3 +1,4 @@
+from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import (
     CheckConstraint,
     Integer,
@@ -5,8 +6,9 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from app.models.document import Document
+from app.core.embedding import EMBEDDING_DIMENSIONS
 from app.db.base import Base
+from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
 
 
@@ -21,6 +23,7 @@ def test_document_chunk_registers_expected_table():
         "content",
         "start_offset",
         "end_offset",
+        "embedding",
     }
 
 
@@ -40,6 +43,12 @@ def test_document_chunk_column_constraints():
     assert isinstance(columns["start_offset"].type, Integer)
     assert columns["end_offset"].nullable is False
     assert isinstance(columns["end_offset"].type, Integer)
+    assert columns["embedding"].nullable is True
+    assert isinstance(
+        columns["embedding"].type,
+        VECTOR,
+    )
+    assert columns["embedding"].type.dim == EMBEDDING_DIMENSIONS
 
 
 def test_document_chunk_document_foreign_key():

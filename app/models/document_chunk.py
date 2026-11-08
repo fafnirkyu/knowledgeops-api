@@ -1,6 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING
 
+from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
@@ -10,10 +11,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.embedding import EMBEDDING_DIMENSIONS
 from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.document import Document
+
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
@@ -66,6 +69,11 @@ class DocumentChunk(Base):
         Integer,
     )
 
+    embedding: Mapped[list[float] | None] = mapped_column(
+        VECTOR(EMBEDDING_DIMENSIONS),
+        nullable=True,
+    )
+
     document: Mapped["Document"] = relationship(
-    back_populates="chunks",
+        back_populates="chunks",
     )
