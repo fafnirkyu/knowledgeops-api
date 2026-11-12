@@ -1,16 +1,19 @@
 import pytest
 from sqlalchemy.orm import Session
 
+from app.core.embedding import EMBEDDING_DIMENSIONS
 from app.models.document import DocumentStatus
 from app.repositories.document import create_document
 from app.repositories.workspace import create_workspace
 from app.schemas.document import DocumentCreate
 from app.schemas.workspace import WorkspaceCreate
 from app.services.document_processor import process_document
+from app.services.embedding_provider import EmbeddingProvider
 
 
 def test_process_document_completes_successfully(
     db_session: Session,
+    embedding_provider: EmbeddingProvider,
 ):
     workspace = create_workspace(
         db_session,
@@ -33,6 +36,7 @@ def test_process_document_completes_successfully(
     processed_document = process_document(
         db_session,
         document,
+        embedding_provider=embedding_provider,
         chunk_size=4,
         overlap=1,
     )
@@ -49,9 +53,29 @@ def test_process_document_completes_successfully(
         "GHIJ",
     ]
 
+    assert all(
+        chunk.embedding is not None
+        for chunk in processed_document.chunks
+    )
+
+    assert all(
+        len(chunk.embedding) == EMBEDDING_DIMENSIONS
+        for chunk in processed_document.chunks
+    )
+
+    assert [
+        chunk.embedding[0]
+        for chunk in processed_document.chunks
+    ] == [
+        4,
+        4,
+        4,
+    ]
+
 
 def test_process_document_records_failure(
     db_session: Session,
+    embedding_provider: EmbeddingProvider,
 ):
     workspace = create_workspace(
         db_session,
@@ -80,6 +104,7 @@ def test_process_document_records_failure(
         process_document(
             db_session,
             document,
+            embedding_provider=embedding_provider,
             chunk_size=4,
             overlap=4,
         )
@@ -91,6 +116,7 @@ def test_process_document_records_failure(
 
 def test_retrying_failed_document(
     db_session: Session,
+    embedding_provider: EmbeddingProvider,
 ):
     workspace = create_workspace(
         db_session,
@@ -114,8 +140,9 @@ def test_retrying_failed_document(
         process_document(
             db_session,
             document,
+            embedding_provider=embedding_provider,
             chunk_size=4,
-            overlap= 4,
+            overlap=4,
         )
 
     assert document.status is DocumentStatus.FAILED
@@ -123,6 +150,7 @@ def test_retrying_failed_document(
     retried_document = process_document(
         db_session,
         document,
+        embedding_provider=embedding_provider,
         chunk_size=4,
         overlap=1,
     )

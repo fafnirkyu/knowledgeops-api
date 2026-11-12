@@ -9,6 +9,7 @@ def create_document_chunks(
     session: Session,
     document: Document,
     chunks: list[TextChunk],
+    embeddings: list[list[float]],
 ) -> list[DocumentChunk]:
     stored_chunks = [
         DocumentChunk(
@@ -17,8 +18,13 @@ def create_document_chunks(
             content=chunk.content,
             start_offset=chunk.start_offset,
             end_offset=chunk.end_offset,
+            embedding=embedding,
         )
-        for chunk in chunks
+        for chunk, embedding in zip(
+            chunks,
+            embeddings,
+            strict=True,
+        )
     ]
 
     session.add_all(stored_chunks)
