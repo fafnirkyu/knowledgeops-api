@@ -1,3 +1,4 @@
+import os
 from collections.abc import Generator, Sequence
 
 import pytest
@@ -53,23 +54,45 @@ def db_session() -> Generator[Session, None, None]:
 
 
 @pytest.fixture
+def postgres_session() -> Generator[Session, None, None]:
+    if os.getenv("RUN_POSTGRES_TESTS") != "1":
+        pytest.skip(
+            "PostgreSQL integration tests are disabled"
+        )
+
+    dependency = get_db_session()
+    session = next(dependency)
+
+    try:
+        yield session
+    finally:
+        dependency.close()
+
+
+@pytest.fixture
 def api_client(
     db_session: Session,
     embedding_provider: EmbeddingProvider,
 ) -> Generator[TestClient, None, None]:
     def override_get_db_session():
         yield db_session
+
     def override_get_embedding_provider():
         return embedding_provider
 
-    app.dependency_overrides[get_db_session] = override_get_db_session
-    app.dependency_overrides[get_embedding_provider] = override_get_embedding_provider
+    app.dependency_overrides[get_db_session] = (
+        override_get_db_session
+    )
+    app.dependency_overrides[get_embedding_provider] = (
+        override_get_embedding_provider
+    )
 
     with TestClient(app) as client:
         yield client
 
     app.dependency_overrides.pop(get_db_session, None)
     app.dependency_overrides.pop(get_embedding_provider, None)
+
 
 @pytest.fixture
 def embedding_provider() -> EmbeddingProvider:
