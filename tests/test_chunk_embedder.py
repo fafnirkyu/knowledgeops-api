@@ -104,7 +104,7 @@ def test_embed_chunks_rejects_wrong_embedding_count():
 
     with pytest.raises(
         ValueError,
-        match="embedding count must match chunk count",
+        match="embedding count must match text count",
     ):
         embed_chunks(
             provider=provider,
