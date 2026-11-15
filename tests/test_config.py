@@ -18,6 +18,11 @@ def test_settings_accepts_explicit_values():
     assert settings.postgres_host == "test_host"
     assert settings.postgres_port == 5433
 
+    assert settings.embedding_model == (
+        "sentence-transformers/"
+        "paraphrase-multilingual-MiniLM-L12-v2"
+    )
+
 
 def test_settings_converts_port_string_to_integer():
     settings = Settings(

@@ -8,7 +8,14 @@ class Settings(BaseSettings):
     postgres_db: str
     postgres_host: str = Field(default="localhost")
     postgres_port: int = Field(default=5432)
-    model_config = SettingsConfigDict(env_file='.env',
-                                      env_file_encoding="utf-8",
-                                      extra="ignore"
+    embedding_model: str = Field(
+        default=(
+            "sentence-transformers/"
+            "paraphrase-multilingual-MiniLM-L12-v2"
+        )
+    )
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
