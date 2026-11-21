@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.core.embedding import EMBEDDING_DIMENSIONS
 from app.repositories.document import create_document
 from app.repositories.document_chunk import create_document_chunks
 from app.repositories.workspace import create_workspace
@@ -35,10 +36,16 @@ def test_create_document_chunks_persists_all_chunks(
         overlap=1,
     )
 
+    embeddings = [
+        [float(index)] * EMBEDDING_DIMENSIONS
+        for index in range(len(chunks))
+    ]
+
     stored_chunks = create_document_chunks(
         db_session,
         document,
         chunks,
+        embeddings,
     )
 
     assert len(stored_chunks) == 3
@@ -66,3 +73,7 @@ def test_create_document_chunks_persists_all_chunks(
         (chunk.start_offset, chunk.end_offset)
         for chunk in chunks
     ]
+    assert [
+        stored_chunk.embedding
+        for stored_chunk in stored_chunks
+    ] == embeddings

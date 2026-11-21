@@ -13,12 +13,18 @@ from app.repositories.document import (
 )
 from app.repositories.workspace import get_workspace
 from app.schemas.document import DocumentCreate, DocumentRead
+from app.services.dependencies import get_embedding_provider
 from app.services.document_processor import process_document
+from app.services.embedding_provider import EmbeddingProvider
 
 router = APIRouter(tags=["documents"])
 
 DbSession = Annotated[Session, Depends(get_db_session)]
 
+EmbeddingProviderDependency = Annotated[
+    EmbeddingProvider,
+    Depends(get_embedding_provider),
+]
 
 @router.post(
     "/workspaces/{workspace_id}/documents",
@@ -74,6 +80,7 @@ def read_documents(
 def process_document_endpoint(
     document_id: UUID,
     session: DbSession,
+    embedding_provider: EmbeddingProviderDependency,
 ):
     document = get_document(session, document_id)
 
@@ -87,6 +94,7 @@ def process_document_endpoint(
         return process_document(
             session,
             document,
+            embedding_provider=embedding_provider,
         )
 
     except InvalidDocumentStatusTransition as error:
