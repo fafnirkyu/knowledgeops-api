@@ -1,4 +1,4 @@
-from pydantic import Field, SecretStr
+from pydantic import Field, RedisDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +14,15 @@ class Settings(BaseSettings):
             "paraphrase-multilingual-MiniLM-L12-v2"
         )
     )
+
+    redis_url: RedisDsn = Field(
+        default="redis://localhost:6379/0"
+    )
+    redis_queue_name: str = Field(
+        default="document-processing",
+        min_length=1,
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

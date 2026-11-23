@@ -8,3 +8,7 @@ psycopg[binary]
 Alembic
 pgvector
 fastembed
+pypdf
+python-multipart
+redis
+rq

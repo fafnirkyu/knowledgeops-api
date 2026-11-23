@@ -111,3 +111,11 @@ def transition_document_status(
     session.refresh(document)
 
     return document
+
+
+def delete_document(
+    session: Session,
+    document: Document,
+) -> None:
+    session.delete(document)
+    session.commit()

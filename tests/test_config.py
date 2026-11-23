@@ -11,6 +11,8 @@ def test_settings_accepts_explicit_values():
         postgres_db="test_database",
         postgres_host="test_host",
         postgres_port=5433,
+        redis_url="redis://test-redis:6379/1",
+        redis_queue_name="test-processing",
     )
 
     assert settings.postgres_user == "test_user"
@@ -22,6 +24,8 @@ def test_settings_accepts_explicit_values():
         "sentence-transformers/"
         "paraphrase-multilingual-MiniLM-L12-v2"
     )
+    assert str(settings.redis_url) == "redis://test-redis:6379/1"
+    assert settings.redis_queue_name == "test-processing"
 
 
 def test_settings_converts_port_string_to_integer():

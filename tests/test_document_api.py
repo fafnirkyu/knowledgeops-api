@@ -1,11 +1,20 @@
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
+from redis.exceptions import RedisError
+from rq import Queue
 from sqlalchemy.orm import Session
 
+from app.jobs.document_processing import process_document_job
 from app.models.document import DocumentStatus
-from app.repositories.document import create_document, get_document
+from app.repositories.document import (
+    create_document,
+    get_document,
+    list_documents,
+)
 from app.repositories.workspace import create_workspace
+from app.routers import documents as document_router
 from app.schemas.document import DocumentCreate
 from app.schemas.workspace import WorkspaceCreate
 
@@ -271,3 +280,104 @@ def test_process_ready_document_returns_conflict(
             "from ready to processing"
         ),
     }
+
+
+def test_upload_pdf_creates_pending_document_and_enqueues_job(
+    api_client: TestClient,
+    db_session: Session,
+    document_queue: Queue,
+    monkeypatch,
+):
+    workspace = create_workspace(
+        db_session,
+        WorkspaceCreate(
+            name="PDF Workspace",
+            description=None,
+        ),
+    )
+
+    extract_pdf_text = Mock(
+        return_value="Extracted PDF content",
+    )
+
+    monkeypatch.setattr(
+        document_router,
+        "extract_pdf_text",
+        extract_pdf_text,
+    )
+
+    response = api_client.post(
+        f"/workspaces/{workspace.id}/documents/upload",
+        files={
+            "file": (
+                "guide.pdf",
+                b"%PDF-fake-contents",
+                "application/pdf",
+            ),
+        },
+        data={
+            "title": "Uploaded Guide",
+        },
+    )
+
+    assert response.status_code == 202
+
+    data = response.json()
+
+    assert data["title"] == "Uploaded Guide"
+    assert data["content"] == "Extracted PDF content"
+    assert data["status"] == "pending"
+    assert data["workspace_id"] == str(workspace.id)
+
+    document_queue.enqueue.assert_called_once_with(
+        process_document_job,
+        data["id"],
+    )
+
+
+def test_upload_pdf_removes_document_when_queue_fails(
+    api_client: TestClient,
+    db_session: Session,
+    document_queue: Queue,
+    monkeypatch,
+):
+    workspace = create_workspace(
+        db_session,
+        WorkspaceCreate(
+            name="Queue Failure Workspace",
+            description=None,
+        ),
+    )
+
+    monkeypatch.setattr(
+        document_router,
+        "extract_pdf_text",
+        Mock(return_value="Extracted PDF content"),
+    )
+
+    document_queue.enqueue.side_effect = RedisError(
+        "Redis unavailable"
+    )
+
+    response = api_client.post(
+        f"/workspaces/{workspace.id}/documents/upload",
+        files={
+            "file": (
+                "guide.pdf",
+                b"%PDF-fake-contents",
+                "application/pdf",
+            ),
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Document queue unavailable"
+    }
+
+    remaining_documents = list_documents(
+        db_session,
+        workspace.id,
+    )
+
+    assert remaining_documents == []
