@@ -13,6 +13,11 @@ def test_settings_accepts_explicit_values():
         postgres_port=5433,
         redis_url="redis://test-redis:6379/1",
         redis_queue_name="test-processing",
+        answer_model_repo="test/repository",
+        answer_model_filename="test-model.gguf",
+        answer_context_size=2048,
+        answer_max_tokens=256,
+        answer_gpu_layers=-1,
     )
 
     assert settings.postgres_user == "test_user"
@@ -26,6 +31,11 @@ def test_settings_accepts_explicit_values():
     )
     assert str(settings.redis_url) == "redis://test-redis:6379/1"
     assert settings.redis_queue_name == "test-processing"
+    assert settings.answer_model_repo == "test/repository"
+    assert settings.answer_model_filename == "test-model.gguf"
+    assert settings.answer_context_size == 2048
+    assert settings.answer_max_tokens == 256
+    assert settings.answer_gpu_layers == -1
 
 
 def test_settings_converts_port_string_to_integer():

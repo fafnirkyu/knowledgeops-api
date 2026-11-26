@@ -12,3 +12,6 @@ pypdf
 python-multipart
 redis
 rq
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+outlines[llamacpp]==1.2.13
+llama-cpp-python==0.3.37
