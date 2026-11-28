@@ -16,7 +16,11 @@ from app.db.dependencies import get_db_session
 from app.db.session import create_session_factory
 from app.jobs.queue import get_document_queue
 from app.main import app
-from app.services.dependencies import get_embedding_provider
+from app.services.answer_provider import AnswerProvider
+from app.services.dependencies import (
+    get_answer_provider,
+    get_embedding_provider,
+)
 from app.services.embedding_provider import EmbeddingProvider
 
 
@@ -30,9 +34,8 @@ class DeterministicEmbeddingProvider:
         return [
             [
                 float(len(text)),
-            ] + [
-                0.0
-            ] * (self.dimensions - 1)
+            ]
+            + [0.0] * (self.dimensions - 1)
             for text in texts
         ]
 
@@ -78,6 +81,11 @@ def embedding_provider() -> EmbeddingProvider:
 
 
 @pytest.fixture
+def answer_provider() -> AnswerProvider:
+    return Mock(spec=AnswerProvider)
+
+
+@pytest.fixture
 def document_queue() -> Queue:
     return Mock(spec=Queue)
 
@@ -86,6 +94,7 @@ def document_queue() -> Queue:
 def api_client(
     db_session: Session,
     embedding_provider: EmbeddingProvider,
+    answer_provider: AnswerProvider,
     document_queue: Queue,
 ) -> Generator[TestClient, None, None]:
     def override_get_db_session():
@@ -93,6 +102,9 @@ def api_client(
 
     def override_get_embedding_provider():
         return embedding_provider
+
+    def override_get_answer_provider():
+        return answer_provider
 
     def override_get_document_queue():
         return document_queue
@@ -102,6 +114,9 @@ def api_client(
     )
     app.dependency_overrides[get_embedding_provider] = (
         override_get_embedding_provider
+    )
+    app.dependency_overrides[get_answer_provider] = (
+        override_get_answer_provider
     )
     app.dependency_overrides[get_document_queue] = (
         override_get_document_queue
@@ -116,6 +131,10 @@ def api_client(
     )
     app.dependency_overrides.pop(
         get_embedding_provider,
+        None,
+    )
+    app.dependency_overrides.pop(
+        get_answer_provider,
         None,
     )
     app.dependency_overrides.pop(
